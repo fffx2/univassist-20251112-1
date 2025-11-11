@@ -92,7 +92,7 @@ function initializeMainPage() {
     initializeDropdowns();
     initializeSliders();
     document.getElementById('generate-btn').addEventListener('click', generateGuide);
-    updateAIMessage("안녕하세요! TYPOUNIVERSE AI Design Assistant입니다. 어떤 프로젝트를 위한 디자인 가이드를 찾으시나요?");
+    updateAIMessage("안녕하세요! UNIVASSIST AI Design Assistant입니다. 어떤 프로젝트를 위한 디자인 가이드를 찾으시나요?");
 }
 
 // 드롭다운 메뉴 초기화
@@ -541,41 +541,6 @@ async function getAIFontRecommendation(service, keyword, platform, mood) {
     }
 }
 
-// AI 텍스트 색상 추천 API 호출
-async function getAITextColorRecommendation(backgroundColor) {
-    console.log('🎨 AI 텍스트 색상 추천 API 호출 시작');
-    console.log('배경색:', backgroundColor);
-    
-    try {
-        const response = await fetch('/.netlify/functions/get-text-color-recommendation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                backgroundColor: backgroundColor
-            })
-        });
-
-        console.log('API 응답 상태:', response.status);
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('API 오류 응답:', errorText);
-            throw new Error(`AI 서버 응답 오류 (${response.status})`);
-        }
-
-        const data = await response.json();
-        console.log('✅ AI 텍스트 색상 추천 성공:', data);
-        return data;
-    } catch (error) {
-        console.error('❌ AI 텍스트 색상 추천 실패:', error.message);
-        // 실패 시 기존 방식으로 폴백
-        return {
-            textColor: getContrastingTextColor(backgroundColor),
-            reasoning: '기본 명도 대비 계산을 사용했습니다.'
-        };
-    }
-}
-
 // Google Fonts 동적 로드
 async function loadGoogleFonts(fontNames) {
     const link = document.createElement('link');
@@ -684,23 +649,14 @@ function createShadeBox(shade, color) {
     return box;
 }
 
-// NEW: 유니버설 컬러시스템 최적화 렌더링 (AI 추천 적용)
-async function renderUniversalColorSystem(data) {
+// NEW: 유니버설 컬러시스템 최적화 렌더링
+function renderUniversalColorSystem(data) {
     const { bgColor, textColor } = appState.labColors;
     
-    console.log('🎨 유니버설 컬러시스템 렌더링 시작');
-    console.log('배경색:', bgColor, '텍스트색:', textColor);
-    
-    // AI로 텍스트 색상 추천받기
-    const aiRecommendation = await getAITextColorRecommendation(bgColor);
-    console.log('AI 추천 결과:', aiRecommendation);
-    
-    // 일반 시각 최적화 (AI 추천 사용)
+    // 일반 시각 최적화
     const normalBgOptimal = bgColor;
-    const normalTextOptimal = aiRecommendation.textColor || textColor;
+    const normalTextOptimal = textColor;
     const normalRatio = calculateContrast(normalBgOptimal, normalTextOptimal);
-    
-    console.log('일반 시각 명도 대비:', normalRatio.toFixed(2) + ':1');
     
     // 일반 시각 표시
     const normalBgBox = document.getElementById('normal-bg-optimal');
@@ -718,13 +674,10 @@ async function renderUniversalColorSystem(data) {
     normalPreview.style.color = normalTextOptimal;
     normalPreview.querySelector('.optimal-ratio').textContent = `${normalRatio.toFixed(2)}:1`;
     
-    // 색각 이상자 시각 최적화 (AI 추천 사용)
+    // 색각 이상자 시각 최적화
     const colorblindBgOptimal = optimizeForColorblind(bgColor);
-    const colorblindAiRecommendation = await getAITextColorRecommendation(colorblindBgOptimal);
-    const colorblindTextOptimal = colorblindAiRecommendation.textColor || optimizeForColorblind(textColor);
+    const colorblindTextOptimal = optimizeForColorblind(textColor);
     const colorblindRatio = calculateContrast(colorblindBgOptimal, colorblindTextOptimal);
-    
-    console.log('색각이상자 시각 명도 대비:', colorblindRatio.toFixed(2) + ':1');
     
     // 색각 이상자 시각 표시
     const colorblindBgBox = document.getElementById('colorblind-bg-optimal');
@@ -742,15 +695,13 @@ async function renderUniversalColorSystem(data) {
     colorblindPreview.style.color = colorblindTextOptimal;
     colorblindPreview.querySelector('.optimal-ratio').textContent = `${colorblindRatio.toFixed(2)}:1`;
     
-    // AI 추천 이유 (AI 응답 활용)
-    let reasoning = aiRecommendation.reasoning || '';
-    reasoning += ` 일반 시각에서는 명도 대비 ${normalRatio.toFixed(2)}:1로 `;
+    // AI 추천 이유
+    let reasoning = `일반 시각에서는 명도 대비 ${normalRatio.toFixed(2)}:1로 `;
     reasoning += normalRatio >= 7 ? 'AAA 등급을 충족합니다. ' : normalRatio >= 4.5 ? 'AA 등급을 충족합니다. ' : '개선이 필요합니다. ';
     reasoning += `적록색약 시각에서는 명도 대비 ${colorblindRatio.toFixed(2)}:1로 `;
     reasoning += colorblindRatio >= 4.5 ? '충분한 구분이 가능합니다.' : '색상 외 추가 시각적 단서를 권장합니다.';
     
     document.getElementById('universal-reasoning').textContent = reasoning;
-    console.log('✅ 유니버설 컬러시스템 렌더링 완료');
 }
 
 // 색각 이상자를 위한 색상 최적화 (명도 차이 강화)
@@ -1016,34 +967,81 @@ async function downloadReportAsPDF() {
 
         console.log('Canvas size:', canvas.width, 'x', canvas.height);
 
-        // 이미지를 데이터 URL로 변환
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-
-        // jsPDF 객체 생성 - 콘텐츠 높이에 맞춘 커스텀 페이지 크기
+        // jsPDF 객체 생성
         const { jsPDF } = window.jspdf;
-        
-        // A4 너비 고정, 높이는 콘텐츠에 맞춤
-        const pageWidth = 210; // A4 너비 (mm)
-        const margin = 5;
-        const contentWidth = pageWidth - (margin * 2); // 200mm
-        
-        // 콘텐츠 비율에 맞춘 페이지 높이 계산
-        const imgHeight = (canvas.height * contentWidth) / canvas.width;
-        const pageHeight = imgHeight + (margin * 2);
-        
-        console.log('PDF size:', pageWidth, 'x', pageHeight, 'mm');
-        
         const pdf = new jsPDF({
             orientation: 'portrait',
             unit: 'mm',
-            format: [pageWidth, pageHeight],
+            format: 'a4',
             compress: true
         });
 
-        // 전체 이미지를 한 페이지에 추가
-        pdf.addImage(imgData, 'JPEG', margin, margin, contentWidth, imgHeight);
+        // A4 크기 (mm)
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 5;
+        
+        // 실제 콘텐츠 영역
+        const contentWidth = pageWidth - (margin * 2); // 200mm
+        const contentHeight = pageHeight - (margin * 2); // 287mm
+        
+        // 캔버스를 PDF 페이지 너비에 맞춤
+        const imgWidth = contentWidth;
+        
+        // 페이지별로 분할
+        let yPosition = 0;
+        let pageNumber = 0;
+        const pixelsPerPage = (canvas.width * contentHeight) / contentWidth;
 
-        console.log('Single page PDF created');
+        console.log('Pixels per page:', pixelsPerPage);
+
+        while (yPosition < canvas.height) {
+            const remainingHeight = canvas.height - yPosition;
+            const heightToCapture = Math.min(pixelsPerPage, remainingHeight);
+            
+            // 빈 페이지 방지: 남은 높이가 한 페이지의 10% 미만이면 무시
+            const minHeight = pixelsPerPage * 0.1;
+            if (heightToCapture < minHeight) {
+                console.log('Skipping small remaining height:', heightToCapture);
+                break;
+            }
+            
+            if (pageNumber > 0) {
+                pdf.addPage();
+            }
+            
+            // 새 캔버스 생성하여 해당 부분만 추출
+            const pageCanvas = document.createElement('canvas');
+            pageCanvas.width = canvas.width;
+            pageCanvas.height = Math.ceil(heightToCapture);
+            
+            const pageCtx = pageCanvas.getContext('2d');
+            pageCtx.fillStyle = '#ffffff';
+            pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+            
+            // 원본 캔버스에서 해당 부분 복사
+            pageCtx.drawImage(
+                canvas,
+                0, yPosition,
+                canvas.width, heightToCapture,
+                0, 0,
+                canvas.width, heightToCapture
+            );
+            
+            // 이미지로 변환
+            const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+            
+            // PDF에 이미지 추가 (정확한 크기 계산)
+            const pageImgHeight = (heightToCapture * contentWidth) / canvas.width;
+            pdf.addImage(pageImgData, 'JPEG', margin, margin, imgWidth, pageImgHeight);
+            
+            console.log(`Page ${pageNumber + 1}: y=${yPosition}, height=${heightToCapture}, pdfHeight=${pageImgHeight}mm`);
+            
+            yPosition += heightToCapture;
+            pageNumber++;
+        }
+
+        console.log('Total pages:', pageNumber);
 
         // 파일명 생성
         const now = new Date();
