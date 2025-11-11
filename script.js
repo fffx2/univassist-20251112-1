@@ -330,9 +330,13 @@ function initializeLabPage() {
             document.getElementById('text-color-input').value = aiRecommendation.textColor;
             document.getElementById('text-color-picker').value = aiRecommendation.textColor;
             
-            // AI 추천 이유 표시
+            // AI 추천 결과 표시 (헥사코드 명확하게)
             const aiRecommendationDiv = document.getElementById('ai-recommendation');
+            const aiTextColorCode = document.getElementById('ai-text-color');
             const aiReasoningSpan = document.getElementById('ai-reasoning');
+            
+            aiTextColorCode.textContent = aiRecommendation.textColor.toUpperCase();
+            aiTextColorCode.style.color = aiRecommendation.textColor;
             aiReasoningSpan.textContent = aiRecommendation.reasoning || '접근성 기준을 만족하는 색상입니다.';
             aiRecommendationDiv.style.display = 'block';
             
